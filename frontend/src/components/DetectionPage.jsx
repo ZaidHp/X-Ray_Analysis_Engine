@@ -119,7 +119,7 @@ const DetectionPage = () => {
     formData.append('file', currentFile);
 
     try {
-      const response = await fetch(`${API_URL}/detect`, {
+      const response = await fetch(`${API_URL}/api/v1/analysis/detect`, {
         method: 'POST',
         body: formData
       });
