@@ -178,7 +178,7 @@ const DetectionPage = () => {
         {/* Header */}
         <div className="text-center mb-12 relative">
           <h1 className="text-5xl font-extrabold bg-gradient-to-r from-slate-800 to-blue-600 bg-clip-text text-transparent mb-4">
-            MediScan Detection
+            Fracture Detection
           </h1>
           <div className="h-1 w-20 bg-gradient-to-r from-blue-400 via-blue-600 to-blue-800 mx-auto rounded-full mb-6"></div>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
