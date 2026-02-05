@@ -101,10 +101,17 @@ async def detect(file: UploadFile = File(...)):
         buffer.write(await file.read())
     
     try:
+        # # Load image with PIL for processing
+        # image = Image.open(input_file_path)
+        # image_array = np.array(image)
+        #
+        # # Run YOLOv8 inference
+        # results = model(image_array)
         # Load image with PIL for processing
-        image = Image.open(input_file_path)
+        # Force conversion to RGB to ensure 3 channels
+        image = Image.open(input_file_path).convert("RGB")
         image_array = np.array(image)
-        
+
         # Run YOLOv8 inference
         results = model(image_array)
         
