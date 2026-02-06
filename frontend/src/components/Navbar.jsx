@@ -1,6 +1,6 @@
 import React from 'react';
 import { Activity } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Navbar = ({ 
   logoText = "XRAE",
@@ -18,6 +18,33 @@ const Navbar = ({
   }
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleNavigation = (e, href) => {
+    e.preventDefault();
+
+    // 1. Handle Internal Routes (e.g., /detect)
+    if (href.startsWith('/')) {
+      navigate(href);
+    } 
+    // 2. Handle Anchor Links (e.g., #features)
+    else if (href.startsWith('#')) {
+      // If we are already on the Home page, scroll smoothly
+      if (location.pathname === '/') {
+        const element = document.querySelector(href);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      } else {
+        // If on another page, navigate to Home with the hash
+        navigate('/' + href);
+      }
+    } 
+    // 3. External Links fallback
+    else {
+      window.open(href, '_blank');
+    }
+  };
 
   return (
     <nav className="fixed top-0 w-full z-40 bg-slate-950/80 backdrop-blur-xl border-b border-cyan-500/10">
@@ -43,8 +70,9 @@ const Navbar = ({
             {links.map((link, index) => (
               <a 
                 key={index}
-                href={link.href} 
-                className="text-slate-300 hover:text-cyan-400 transition-colors font-medium"
+                href={link.href}
+                onClick={(e) => handleNavigation(e, link.href)}
+                className="text-slate-300 hover:text-cyan-400 transition-colors font-medium cursor-pointer"
               >
                 {link.label}
               </a>
