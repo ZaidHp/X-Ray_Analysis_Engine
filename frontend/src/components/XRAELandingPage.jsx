@@ -1,10 +1,9 @@
+// frontend/src/components/XRAELandingPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Activity, 
   Brain, 
   Zap, 
   Shield, 
-  ChevronRight, 
   Play,
   Check,
   ArrowRight,
@@ -13,10 +12,10 @@ import {
   Clock,
   TrendingUp,
   Users,
-  Award,
   ChevronDown
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import Navbar from './Navbar';
+import Footer from './Footer';
 
 const XRAELandingPage = () => {
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
@@ -24,7 +23,6 @@ const XRAELandingPage = () => {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const heroRef = useRef(null);
-  const navigate = useNavigate();
 
   // Parallax mouse effect
   useEffect(() => {
@@ -176,44 +174,7 @@ const XRAELandingPage = () => {
       />
 
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-40 bg-slate-950/80 backdrop-blur-xl border-b border-cyan-500/10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            {/* Logo */}
-            <div className="flex items-center gap-3 group cursor-pointer">
-              <div className="relative">
-                <div className="absolute inset-0 bg-cyan-500 blur-xl opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                <Activity className="w-8 h-8 text-cyan-400 relative" />
-              </div>
-              <span className="text-2xl font-black tracking-tight">
-                <span className="text-cyan-400">X</span>
-                <span className="text-white">RAE</span>
-              </span>
-            </div>
-
-            {/* Nav Links */}
-            <div className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-slate-300 hover:text-cyan-400 transition-colors font-medium">Features</a>
-              <a href="#how-it-works" className="text-slate-300 hover:text-cyan-400 transition-colors font-medium">How It Works</a>
-              <a href="#pricing" className="text-slate-300 hover:text-cyan-400 transition-colors font-medium">Pricing</a>
-              <a href="#contact" className="text-slate-300 hover:text-cyan-400 transition-colors font-medium">Contact</a>
-            </div>
-
-            {/* CTA */}
-            <div className="flex items-center gap-4">
-              <button className="hidden md:block px-4 py-2 text-slate-300 hover:text-white transition-colors font-medium">
-                Sign In
-              </button>
-              <button 
-                onClick={() => navigate('/detect')}
-                className="px-6 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full font-semibold hover:shadow-lg hover:shadow-cyan-500/50 transition-all duration-300 hover:-translate-y-0.5"
-              >
-                Get Started
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section ref={heroRef} className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
@@ -552,59 +513,7 @@ const XRAELandingPage = () => {
       </section>
 
       {/* Footer */}
-      <footer className="relative py-12 px-6 border-t border-slate-800">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-4 gap-8 mb-8">
-            {/* Brand */}
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <Activity className="w-8 h-8 text-cyan-400" />
-                <span className="text-2xl font-black">
-                  <span className="text-cyan-400">X</span>RAE
-                </span>
-              </div>
-              <p className="text-slate-400 text-sm">
-                AI-powered bone fracture detection for the modern healthcare industry.
-              </p>
-            </div>
-
-            {/* Links */}
-            <div>
-              <h4 className="font-bold mb-4">Product</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">API</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Documentation</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-4">Company</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">About</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Contact</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-4">Legal</h4>
-              <ul className="space-y-2 text-slate-400">
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Privacy</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Terms</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Security</a></li>
-                <li><a href="#" className="hover:text-cyan-400 transition-colors">Compliance</a></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-8 border-t border-slate-800 text-center text-slate-400 text-sm">
-            <p>© 2024 XRAE. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Custom Styles */}
       <style>{`
