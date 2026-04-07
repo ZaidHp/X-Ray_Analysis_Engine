@@ -5,6 +5,8 @@ import cv2
 from datetime import datetime, timezone
 from groq import Groq
 from dotenv import load_dotenv
+from bson import ObjectId
+from bson.errors import InvalidId
 
 from app.core.config import settings
 from app.services.ai_service import ai_service
@@ -127,16 +129,61 @@ async def detect_fracture(
 
 
 @router.get("/history")
-async def get_xray_history(
+async def get_xray_history_list(
     current_user: dict = Depends(get_current_user),
     db = Depends(get_database)
 ):
-    cursor = db["xray_analyses"].find({"user_id": current_user["id"]}).sort("created_at", -1)
+    """Retrieves a lightweight list of past X-ray analyses (summary only)."""
+    
+    cursor = db["xray_analyses"].find(
+        {"user_id": current_user["id"]},
+        {
+            "detection_id": 1,
+            "message": 1,
+            "result_image_url": 1, 
+            "created_at": 1
+        }
+    ).sort("created_at", -1)
+    
     analyses = await cursor.to_list(length=100)
     
-    history = []
+    history_summary = []
     for record in analyses:
-        history.append({
+        history_summary.append({
+            "id": str(record["_id"]),
+            "detection_id": record.get("detection_id"),
+            "message": record.get("message"),
+            "result_image_url": record.get("result_image_url"),
+            "created_at": record.get("created_at")
+        })
+        
+    return {"success": True, "history": history_summary}
+
+
+@router.get("/history/{analysis_id}")
+async def get_xray_detail(
+    analysis_id: str,
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Retrieves the full, detailed record of a specific X-ray analysis."""
+    
+    try:
+        obj_id = ObjectId(analysis_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid analysis ID format.")
+    
+    record = await db["xray_analyses"].find_one({
+        "_id": obj_id,
+        "user_id": current_user["id"]
+    })
+    
+    if not record:
+        raise HTTPException(status_code=404, detail="X-ray analysis not found.")
+        
+    return {
+        "success": True,
+        "analysis": {
             "id": str(record["_id"]),
             "detection_id": record.get("detection_id"),
             "message": record.get("message"),
@@ -146,6 +193,5 @@ async def get_xray_history(
             "detections": record.get("detections", []),
             "ai_consultation": record.get("ai_consultation"),
             "created_at": record.get("created_at")
-        })
-        
-    return {"success": True, "history": history}
+        }
+    }

@@ -6,6 +6,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from groq import Groq
 from llama_parse import LlamaParse
 from dotenv import load_dotenv
+from bson import ObjectId
+from bson.errors import InvalidId
 
 from app.db.mongodb import get_database
 from app.api.deps import get_current_user
@@ -167,23 +169,59 @@ async def analyze_report(
 
 
 @router.get("/history")
-async def get_report_history(
+async def get_report_history_list(
     current_user: dict = Depends(get_current_user),
     db = Depends(get_database)
 ):
-    """Retrieves all past medical reports analyzed by the authenticated user."""
+    """Retrieves a lightweight list of all past medical reports (summary only)."""
     
-    cursor = db["medical_reports"].find({"user_id": current_user["id"]}).sort("created_at", -1)
+    cursor = db["medical_reports"].find(
+        {"user_id": current_user["id"]},
+        {"original_filename": 1, "created_at": 1} 
+    ).sort("created_at", -1)
     
     reports = await cursor.to_list(length=100)
     
-    history = []
+    history_summary = []
     for report in reports:
-        history.append({
+        history_summary.append({
             "id": str(report["_id"]),
             "original_filename": report.get("original_filename"),
-            "analysis_result": report.get("analysis_result"),
             "created_at": report.get("created_at")
         })
         
-    return {"success": True, "history": history}
+    return {"success": True, "history": history_summary}
+
+
+@router.get("/history/{report_id}")
+async def get_report_detail(
+    report_id: str,
+    current_user: dict = Depends(get_current_user),
+    db = Depends(get_database)
+):
+    """Retrieves the full details of a specific medical report."""
+    
+    try:
+        obj_id = ObjectId(report_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid report ID format.")
+    
+    report = await db["medical_reports"].find_one({
+        "_id": obj_id,
+        "user_id": current_user["id"] 
+    })
+    
+    if not report:
+        raise HTTPException(status_code=404, detail="Medical report not found.")
+        
+    return {
+        "success": True,
+        "report": {
+            "id": str(report["_id"]),
+            "original_filename": report.get("original_filename"),
+            "extracted_text": report.get("extracted_text"),
+            "analysis_result": report.get("analysis_result"),
+            "saved_file_path": report.get("saved_file_path"),
+            "created_at": report.get("created_at")
+        }
+    }
