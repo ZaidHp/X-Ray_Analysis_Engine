@@ -4,10 +4,11 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.models.user import UserCreate, UserResponse, Token, OTPVerify, OTPResend
+from app.models.user import UserCreate, UserResponse, Token, OTPVerify, OTPResend, ForgotPasswordRequest, ResetPasswordRequest, ChangePasswordRequest
 from app.core.security import get_password_hash, verify_password, create_access_token
 from app.db.mongodb import get_database
-from app.utils.email_service import send_otp_email
+from app.utils.email_service import send_otp_email, send_password_reset_email
+from app.api.deps import get_current_user
 
 router = APIRouter()
 
@@ -111,3 +112,71 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(g
         
     access_token = create_access_token(data={"sub": str(user["id"])})
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest, background_tasks: BackgroundTasks, db = Depends(get_database)):
+    user = await db["users"].find_one({"email": payload.email})
+    
+    if user:
+        raw_otp = generate_otp()
+        new_expiry = datetime.now(timezone.utc) + timedelta(minutes=10)
+        
+        await db["users"].update_one(
+            {"email": payload.email},
+            {"$set": {
+                "otp_hash": get_password_hash(raw_otp),
+                "otp_expiry": new_expiry
+            }}
+        )
+        
+        background_tasks.add_task(send_password_reset_email, payload.email, raw_otp)
+        
+    return {"message": "If an account with that email exists, a password reset OTP has been sent."}
+
+
+@router.post("/reset-password")
+async def reset_password(payload: ResetPasswordRequest, db = Depends(get_database)):
+    user = await db["users"].find_one({"email": payload.email})
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    expiry = user.get("otp_expiry")
+    if not expiry or expiry.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="OTP has expired or was not requested. Please request a new one.")
+        
+    if not verify_password(payload.otp, user.get("otp_hash", "")):
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+        
+    new_hashed_password = get_password_hash(payload.new_password)
+    
+    await db["users"].update_one(
+        {"email": payload.email},
+        {
+            "$set": {"hashed_password": new_hashed_password},
+            "$unset": {"otp_hash": "", "otp_expiry": ""}
+        }
+    )
+    
+    return {"message": "Password has been reset successfully. You can now log in with your new password."}
+
+@router.post("/change-password")
+async def change_password(
+    payload: ChangePasswordRequest, 
+    current_user: dict = Depends(get_current_user), 
+    db = Depends(get_database)
+):
+    if not verify_password(payload.current_password, current_user["hashed_password"]):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+
+    if verify_password(payload.new_password, current_user["hashed_password"]):
+        raise HTTPException(status_code=400, detail="New password cannot be the same as the current password")
+
+    new_hashed_password = get_password_hash(payload.new_password)
+    
+    await db["users"].update_one(
+        {"id": current_user["id"]}, 
+        {"$set": {"hashed_password": new_hashed_password}}
+    )
+
+    return {"message": "Password changed successfully."}

@@ -50,3 +50,46 @@ async def send_otp_email(to_email: str, otp: str):
             print(f"Failed to send email: {e}")
 
     await asyncio.to_thread(_send_email)
+
+async def send_password_reset_email(to_email: str, otp: str):
+    """Sends a password reset OTP email asynchronously."""
+    
+    server = os.getenv("SMTP_SERVER", "smtp.gmail.com")
+    port = int(os.getenv("SMTP_PORT", 587))
+    sender_email = os.getenv("SMTP_USERNAME")
+    password = os.getenv("SMTP_PASSWORD")
+
+    if not sender_email or not password:
+        print("Warning: SMTP credentials missing. Reset OTP generated but not sent.")
+        return
+
+    message = MIMEMultipart("alternative")
+    message["Subject"] = "Password Reset Request - X-Ray Analysis Engine"
+    message["From"] = sender_email
+    message["To"] = to_email
+
+    html = f"""
+    <html>
+      <body>
+        <h2>Password Reset Request</h2>
+        <p>We received a request to reset your password. Please use the following One-Time Password (OTP) to proceed:</p>
+        <h1 style="color: #E24A4A; letter-spacing: 5px;">{otp}</h1>
+        <p>This code will expire in 10 minutes.</p>
+        <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+      </body>
+    </html>
+    """
+    
+    part = MIMEText(html, "html")
+    message.attach(part)
+
+    def _send_email():
+        try:
+            with smtplib.SMTP(server, port) as server_conn:
+                server_conn.starttls()
+                server_conn.login(sender_email, password)
+                server_conn.sendmail(sender_email, to_email, message.as_string())
+        except Exception as e:
+            print(f"Failed to send reset email: {e}")
+
+    await asyncio.to_thread(_send_email)

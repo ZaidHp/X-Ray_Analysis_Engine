@@ -45,3 +45,37 @@ class OTPVerify(BaseModel):
 
 class OTPResend(BaseModel):
     email: EmailStr
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
+    new_password: str = Field(..., min_length=8, max_length=64)
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password_complexity(cls, password: str) -> str:
+        if not re.search(r'[A-Z]', password):
+            raise ValueError('Password must contain an uppercase letter.')
+        if not re.search(r'[a-z]', password):
+            raise ValueError('Password must contain a lowercase letter.')
+        if not re.search(r'\d', password):
+            raise ValueError('Password must contain a number.')
+        return password
+    
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=64)
+
+    @field_validator('new_password')
+    @classmethod
+    def validate_password_complexity(cls, password: str) -> str:
+        if not re.search(r'[A-Z]', password):
+            raise ValueError('Password must contain an uppercase letter.')
+        if not re.search(r'[a-z]', password):
+            raise ValueError('Password must contain a lowercase letter.')
+        if not re.search(r'\d', password):
+            raise ValueError('Password must contain a number.')
+        return password
