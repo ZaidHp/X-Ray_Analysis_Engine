@@ -1,37 +1,40 @@
+"use client";
+
 import React, { useState, useRef, useCallback } from 'react';
-import { Upload, FolderOpen, Search, Loader, Bone, Image as ImageIcon, ClipboardList, Microscope, RefreshCw, MapPin, CloudUpload } from 'lucide-react';
-import Navbar from './Navbar';
-import Footer from './Footer';
+import { FolderOpen, Search, Bone, Image as ImageIcon, ClipboardList, Microscope, RefreshCw, MapPin, CloudUpload, Stethoscope } from 'lucide-react';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const DetectionPage = () => {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   
   // State management
-  const [currentFile, setCurrentFile] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(null);
+  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressMessage, setProgressMessage] = useState('');
-  const [results, setResults] = useState(null);
+  const [results, setResults] = useState<Record<string, any> | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   
-  const fileInputRef = useRef(null);
-  const dropAreaRef = useRef(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dropAreaRef = useRef<HTMLDivElement>(null);
 
   // File validation
-  const isValidImageFile = (file) => {
+  const isValidImageFile = (file: File) => {
     const acceptedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
     return acceptedTypes.includes(file.type);
   };
 
   // Handle file selection
-  const handleFiles = (files) => {
+  const handleFiles = (files: FileList) => {
     const file = files[0];
-    if (isValidImageFile(file)) {
+    if (file && isValidImageFile(file)) {
       setCurrentFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
-        setPreviewUrl(e.target.result);
+        setPreviewUrl(e.target?.result as string);
       };
       reader.readAsDataURL(file);
     } else {
@@ -40,31 +43,30 @@ const DetectionPage = () => {
   };
 
   // Drag and drop handlers
-  const handleDragEnter = useCallback((e) => {
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(true);
   }, []);
 
-  const handleDragLeave = useCallback((e) => {
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
   }, []);
 
-  const handleDragOver = useCallback((e) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
   }, []);
 
-  const handleDrop = useCallback((e) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFiles(files);
+    if (e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
     }
   }, []);
 
@@ -74,8 +76,8 @@ const DetectionPage = () => {
   };
 
   // File input change
-  const handleFileInputChange = (e) => {
-    if (e.target.files.length > 0) {
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
       handleFiles(e.target.files);
     }
   };
@@ -121,8 +123,12 @@ const DetectionPage = () => {
     formData.append('file', currentFile);
 
     try {
+      const token = localStorage.getItem('access_token');
       const response = await fetch(`${API_URL}/api/v1/analysis/detect`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData
       });
 
@@ -167,7 +173,7 @@ const DetectionPage = () => {
   };
 
   // Get confidence class
-  const getConfidenceClass = (confidence) => {
+  const getConfidenceClass = (confidence: number) => {
     const percent = Math.round(confidence * 100);
     if (percent >= 80) return 'bg-green-500';
     if (percent >= 50) return 'bg-yellow-500';
@@ -175,27 +181,11 @@ const DetectionPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Navbar Integration */}
-      <Navbar 
-        links={[
-          { label: 'Home', href: '/' },
-          { label: 'Features', href: '/#features' },
-          { label: 'How It Works', href: '/#how-it-works' },
-          { label: 'Report Analyzer', href: '/report-analysis' },
-          { label: 'Contact', href: '/#contact' },
-        ]}
-        actionButtons={{
-          signIn: { label: 'Sign In', show: true },
-          cta: { label: 'Get Started', show: false } // Hidden since we are on the tool
-        }}
-      />
-
-      {/* Main Content */}
-      <main className="flex-1 pt-24 pb-12 px-4 sm:px-6 lg:px-8">
+    <ProtectedRoute>
+      <div className="flex-1 pt-12 pb-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 to-blue-50/50 min-h-screen">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-12 relative">
+          <div className="text-center mb-12 relative animate-fadeIn">
             <h1 className="text-5xl font-extrabold bg-gradient-to-r from-slate-800 to-blue-600 bg-clip-text text-transparent mb-4">
               Fracture Detection
             </h1>
@@ -206,7 +196,7 @@ const DetectionPage = () => {
           </div>
 
           {/* Main Container */}
-          <div className="bg-white rounded-2xl shadow-2xl p-8 backdrop-blur-sm bg-white/95">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 backdrop-blur-sm bg-white/95 animate-fadeIn" style={{ animationDelay: '100ms' }}>
             
             {/* Upload Area - Show only when no file is selected and not showing results */}
             {!previewUrl && !results && (
@@ -264,7 +254,13 @@ const DetectionPage = () => {
                     className="max-h-80 max-w-full object-contain rounded-lg"
                   />
                 </div>
-                <div className="flex justify-center">
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={resetDetector}
+                    className="px-6 py-4 bg-white border border-slate-200 text-slate-600 rounded-full font-semibold hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
                   <button
                     onClick={uploadAndDetect}
                     className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-full font-semibold text-lg shadow-lg transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:from-blue-700 hover:to-blue-800"
@@ -279,8 +275,8 @@ const DetectionPage = () => {
             {/* Loading Indicator */}
             {isUploading && (
               <div className="text-center py-16">
-                <div className="inline-block p-8 bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl shadow-xl mb-6">
-                  <Bone className="w-16 h-16 text-blue-600 mx-auto mb-4 animate-pulse" />
+                <div className="inline-block p-8 bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl shadow-xl mb-6 flex items-center justify-center">
+                  <Bone className="w-16 h-16 text-blue-600 animate-pulse" />
                 </div>
                 <h3 className="text-2xl font-semibold text-slate-800 mb-3">
                   Analyzing Your X-Ray
@@ -290,8 +286,8 @@ const DetectionPage = () => {
                 </p>
                 
                 {/* Progress Bar */}
-                <div className="max-w-md mx-auto mb-4">
-                  <div className="h-3 bg-slate-200 rounded-full overflow-hidden shadow-inner">
+                <div className="max-w-md mx-auto mb-4 bg-white p-1 rounded-full border border-slate-200">
+                  <div className="h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner flex">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500 ease-out"
                       style={{ width: `${progress}%` }}
@@ -317,6 +313,33 @@ const DetectionPage = () => {
                   </p>
                 </div>
 
+                {/* AI Consultation / LLM Suggestion Section */}
+                {results.ai_consultation && (
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100 shadow-lg">
+                    <div className="flex items-center gap-3 mb-4 border-b border-indigo-100 pb-4">
+                      <div className="bg-indigo-100 p-2 rounded-lg">
+                        <Stethoscope className="w-6 h-6 text-indigo-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold text-indigo-900">AI Medical Assistant</h3>
+                        <p className="text-sm text-indigo-600">Preliminary consultation based on visual findings</p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white/80 rounded-xl p-6 shadow-sm border border-white backdrop-blur-sm text-slate-700">
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          strong: ({node, ...props}) => <strong className="font-bold text-slate-900" {...props} />,
+                          p: ({node, ...props}) => <p className="mb-4 last:mb-0 leading-relaxed" {...props} />
+                        }}
+                      >
+                        {results.ai_consultation}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                )}
+
                 {/* Image Comparison Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Original Image */}
@@ -325,11 +348,11 @@ const DetectionPage = () => {
                       <ImageIcon className="w-5 h-5 text-blue-600" />
                       <h3 className="text-lg font-semibold text-slate-800">Original Image</h3>
                     </div>
-                    <div className="bg-white rounded-xl p-4 shadow-inner">
+                    <div className="bg-white rounded-xl p-4 shadow-inner text-center">
                       <img
-                        src={previewUrl}
+                        src={previewUrl!}
                         alt="Original X-Ray"
-                        className="w-full h-auto rounded-lg"
+                        className="max-h-80 mx-auto object-contain rounded-lg"
                       />
                     </div>
                   </div>
@@ -340,12 +363,12 @@ const DetectionPage = () => {
                       <Search className="w-5 h-5 text-blue-600" />
                       <h3 className="text-lg font-semibold text-slate-800">Detection Result</h3>
                     </div>
-                    <div className="bg-white rounded-xl p-4 shadow-inner">
-                      {results.result_image ? (
+                    <div className="bg-white rounded-xl p-4 shadow-inner text-center">
+                      {results.result_image_url || results.result_image ? (
                         <img
-                          src={`${API_URL}${results.result_image}`}
+                          src={`${API_URL}${results.result_image_url || results.result_image}`}
                           alt="Detection Result"
-                          className="w-full h-auto rounded-lg"
+                          className="max-h-80 mx-auto object-contain rounded-lg"
                         />
                       ) : (
                         <div className="flex items-center justify-center h-64 text-slate-400">
@@ -366,11 +389,11 @@ const DetectionPage = () => {
                   <div className="space-y-4">
                     {!results.detections || results.detections.length === 0 ? (
                       <div className="bg-white rounded-xl p-6 shadow-md">
-                        <h4 className="font-semibold text-slate-800 mb-2">No fractures detected</h4>
-                        <p className="text-slate-600">The AI did not detect any fractures in this image.</p>
+                        <h4 className="font-semibold text-green-700 mb-2">No fractures detected</h4>
+                        <p className="text-slate-600">The AI did not detect any abnormalities in this image.</p>
                       </div>
                     ) : (
-                      results.detections.map((detection, index) => {
+                      results.detections.map((detection: any, index: number) => {
                         const confidencePercent = Math.round(detection.confidence * 100);
                         return (
                           <div
@@ -384,8 +407,8 @@ const DetectionPage = () => {
                             </div>
                             
                             <div className="flex-1">
-                              <h4 className="text-lg font-semibold text-slate-800 mb-3">
-                                {detection.class} #{index + 1}
+                              <h4 className="text-lg font-semibold text-slate-800 mb-3 capitalize">
+                                {detection.class.replace('_', ' ')} #{index + 1}
                               </h4>
                               
                               {/* Confidence */}
@@ -411,8 +434,7 @@ const DetectionPage = () => {
                               <div className="flex items-start gap-2 text-sm text-slate-600">
                                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                 <span>
-                                  Location: x: {Math.round(detection.box.x1)}-{Math.round(detection.box.x2)}, 
-                                  y: {Math.round(detection.box.y1)}-{Math.round(detection.box.y2)}
+                                  Location: [{Math.round(detection.box.x1)}, {Math.round(detection.box.y1)}] - [{Math.round(detection.box.x2)}, {Math.round(detection.box.y2)}]
                                 </span>
                               </div>
                             </div>
@@ -424,41 +446,44 @@ const DetectionPage = () => {
                 </div>
 
                 {/* Grad-CAM Visualization */}
-                {results.gradcam_image && (
+                {(results.gradcam_image_url || results.gradcam_image) && (
                   <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl p-6 border border-slate-200 shadow-lg">
                     <div className="flex items-center gap-2 mb-6">
                       <Microscope className="w-6 h-6 text-blue-600" />
                       <h3 className="text-xl font-semibold text-slate-800">Grad-CAM Visualization</h3>
                     </div>
                     
-                    <div className="bg-white rounded-xl p-6 shadow-md mb-4">
-                      <h4 className="font-semibold text-slate-800 mb-2">Grad-CAM Visualization</h4>
-                      <p className="text-sm text-slate-600 mb-4">
-                        This heat map highlights areas that influenced the AI's fracture detection decision
-                      </p>
-                      
-                      <div className="bg-slate-50 rounded-lg p-4 mb-4">
-                        <img
-                          src={`${API_URL}${results.gradcam_image}`}
-                          alt="Grad-CAM Visualization"
-                          className="w-full h-auto rounded-lg"
-                        />
+                    <div className="bg-white rounded-xl p-6 shadow-md mb-4 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                      <div>
+                        <h4 className="font-semibold text-slate-800 mb-2">Activation Heatmap</h4>
+                        <p className="text-sm text-slate-600 mb-6">
+                          This heat map highlights areas that influenced the AI's fracture detection decision.
+                        </p>
+                        
+                        {/* Legend */}
+                        <div className="flex flex-col gap-3 bg-slate-50 rounded-lg p-5 border border-slate-100">
+                          <h5 className="font-medium text-xs text-slate-500 uppercase tracking-wider mb-2">Legend</h5>
+                          <div className="flex items-center gap-3">
+                            <div className="w-5 h-5 bg-red-500 rounded shadow-sm"></div>
+                            <span className="text-sm text-slate-700 font-medium">High Attention</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-5 h-5 bg-yellow-400 rounded shadow-sm"></div>
+                            <span className="text-sm text-slate-700 font-medium">Medium Attention</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="w-5 h-5 bg-blue-500 rounded shadow-sm"></div>
+                            <span className="text-sm text-slate-700 font-medium">Low Attention</span>
+                          </div>
+                        </div>
                       </div>
                       
-                      {/* Legend */}
-                      <div className="flex flex-wrap gap-4 bg-slate-50 rounded-lg p-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 bg-red-500 rounded"></div>
-                          <span className="text-sm text-slate-700">High Attention</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 bg-yellow-400 rounded"></div>
-                          <span className="text-sm text-slate-700">Medium Attention</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 bg-green-500 rounded"></div>
-                          <span className="text-sm text-slate-700">Low Attention</span>
-                        </div>
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex justify-center shadow-inner">
+                        <img
+                          src={`${API_URL}${results.gradcam_image_url || results.gradcam_image}`}
+                          alt="Grad-CAM Visualization"
+                          className="max-h-72 object-contain rounded-lg"
+                        />
                       </div>
                     </div>
                   </div>
@@ -478,11 +503,8 @@ const DetectionPage = () => {
             )}
           </div>
         </div>
-      </main>
+      </div>
       
-      {/* Footer Integration */}
-      <Footer />
-
       {/* Custom Animations */}
       <style>{`
         @keyframes fadeIn {
@@ -500,7 +522,7 @@ const DetectionPage = () => {
           animation: fadeIn 0.6s ease-out forwards;
         }
       `}</style>
-    </div>
+    </ProtectedRoute>
   );
 };
 
