@@ -4,13 +4,12 @@ from uuid import UUID, uuid4
 from datetime import datetime, timezone
 import re
 
-# 1. Base User Model (Shared across everything)
 class UserBase(BaseModel):
     email: EmailStr
     full_name: Optional[str] = Field(default=None, max_length=100)
     is_active: bool = True
-    is_superuser: bool = False  # Added for admin role checks
-    is_verified: bool = False   # Added for email confirmation flows
+    is_superuser: bool = False
+    is_verified: bool = False
 
 # 2. Model for creating a user (API Input)
 class UserCreate(UserBase):
@@ -27,21 +26,15 @@ class UserCreate(UserBase):
             raise ValueError('Password must contain a number.')
         return password
 
-# 3. Model for returning user data (API Output)
 class UserResponse(UserBase):
-    id: UUID                    # Expose the UUID to the frontend
+    id: UUID                    
     created_at: datetime
     
-    # CRITICAL: This allows Pydantic to read data directly from a Database Object
-    # (e.g., SQLAlchemy) rather than requiring a Python dictionary.
     model_config = ConfigDict(from_attributes=True)
 
-# 4. Token Models (Updated to use UUID)
 class Token(BaseModel):
     access_token: str
     token_type: str
 
 class TokenData(BaseModel):
-    # 'sub' (subject) is the standard JWT claim for identifying the user.
-    # It expects a UUID matching the generated User ID.
     sub: Optional[UUID] = None

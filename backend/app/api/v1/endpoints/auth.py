@@ -1,3 +1,5 @@
+import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from app.models.user import UserCreate, UserResponse, Token
@@ -12,11 +14,15 @@ async def signup(user: UserCreate, db = Depends(get_database)):
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
         
-    user_dict = user.dict()
+    user_dict = user.model_dump()
     user_dict["hashed_password"] = get_password_hash(user_dict.pop("password"))
     
+    user_dict["id"] = str(uuid.uuid4())
+    user_dict["created_at"] = datetime.now(timezone.utc)
+    
     await db["users"].insert_one(user_dict)
-    return user
+    
+    return user_dict
 
 @router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(get_database)):
@@ -28,5 +34,5 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(g
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-    access_token = create_access_token(data={"sub": user["email"]})
+    access_token = create_access_token(data={"sub": str(user["id"])})
     return {"access_token": access_token, "token_type": "bearer"}
