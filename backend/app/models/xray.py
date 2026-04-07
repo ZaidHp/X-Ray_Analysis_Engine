@@ -22,8 +22,6 @@ class XRayAnalysisBase(BaseModel):
     explanation_image_url: Optional[str] = None
     gradcam_image_url: Optional[str] = None
     detections: List[DetectionItem] = []
-    
-    # NEW: Store the LLM's interpretation and recommendations
     ai_consultation: Optional[str] = None 
 
 class XRayAnalysisInDB(XRayAnalysisBase):

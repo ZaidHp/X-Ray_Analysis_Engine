@@ -38,3 +38,10 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     sub: Optional[UUID] = None
+
+class OTPVerify(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
+
+class OTPResend(BaseModel):
+    email: EmailStr
