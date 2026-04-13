@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback } from 'react';
-import { FolderOpen, Search, Bone, Image as ImageIcon, ClipboardList, Microscope, RefreshCw, MapPin, CloudUpload, Stethoscope } from 'lucide-react';
+import { FolderOpen, Search, Bone, Image as ImageIcon, ClipboardList, Microscope, RefreshCw, CloudUpload, Stethoscope } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -86,8 +86,8 @@ const DetectionPage = () => {
   const simulateProgress = () => {
     const stages = [
       { percent: 20, message: 'Analysis complete! Preparing results...' },
-      { percent: 40, message: 'Processing image analysis...' },
-      { percent: 60, message: 'Identifying fracture patterns...' },
+      { percent: 40, message: 'Processing image classification...' },
+      { percent: 60, message: 'Identifying structural integrity...' },
       { percent: 80, message: 'Generating visualization...' },
       { percent: 100, message: 'Finalizing report...' }
     ];
@@ -146,7 +146,7 @@ const DetectionPage = () => {
         clearInterval(progressInterval);
         setResults(data);
         setIsUploading(false);
-      }, 12000); // 5 stages * 2 seconds + 2 seconds final display
+      }, 12000);
 
     } catch (error) {
       console.error('Detection error:', error);
@@ -172,12 +172,11 @@ const DetectionPage = () => {
     }
   };
 
-  // Get confidence class
-  const getConfidenceClass = (confidence: number) => {
-    const percent = Math.round(confidence * 100);
-    if (percent >= 80) return 'bg-green-500';
-    if (percent >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
+  // Get confidence styling classes based on percentage (0-100)
+  const getConfidenceColor = (percent: number) => {
+    if (percent >= 80) return { bg: 'bg-green-500', text: 'text-green-600' };
+    if (percent >= 50) return { bg: 'bg-yellow-500', text: 'text-yellow-600' };
+    return { bg: 'bg-red-500', text: 'text-red-600' };
   };
 
   return (
@@ -198,7 +197,7 @@ const DetectionPage = () => {
           {/* Main Container */}
           <div className="bg-white rounded-2xl shadow-2xl p-8 backdrop-blur-sm bg-white/95 animate-fadeIn" style={{ animationDelay: '100ms' }}>
             
-            {/* Upload Area - Show only when no file is selected and not showing results */}
+            {/* Upload Area */}
             {!previewUrl && !results && (
               <div
                 ref={dropAreaRef}
@@ -364,9 +363,10 @@ const DetectionPage = () => {
                       <h3 className="text-lg font-semibold text-slate-800">Detection Result</h3>
                     </div>
                     <div className="bg-white rounded-xl p-4 shadow-inner text-center">
-                      {results.result_image_url || results.result_image ? (
+                      {/* Note: Prioritizes explanation_image_url so the red/green borders show */}
+                      {results.explanation_image_url || results.result_image_url || results.result_image ? (
                         <img
-                          src={`${API_URL}${results.result_image_url || results.result_image}`}
+                          src={`${API_URL}${results.explanation_image_url || results.result_image_url || results.result_image}`}
                           alt="Detection Result"
                           className="max-h-80 mx-auto object-contain rounded-lg"
                         />
@@ -379,7 +379,7 @@ const DetectionPage = () => {
                   </div>
                 </div>
 
-                {/* Fracture Analysis */}
+                {/* Fracture Analysis (Classification Result) */}
                 <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl p-6 border border-slate-200 shadow-lg">
                   <div className="flex items-center gap-2 mb-6">
                     <ClipboardList className="w-6 h-6 text-blue-600" />
@@ -387,60 +387,44 @@ const DetectionPage = () => {
                   </div>
                   
                   <div className="space-y-4">
-                    {!results.detections || results.detections.length === 0 ? (
-                      <div className="bg-white rounded-xl p-6 shadow-md">
-                        <h4 className="font-semibold text-green-700 mb-2">No fractures detected</h4>
-                        <p className="text-slate-600">The AI did not detect any abnormalities in this image.</p>
+                    {!results.classification || results.classification.class.toLowerCase() === 'normal' ? (
+                      <div className="bg-white rounded-xl p-6 shadow-md border-l-4 border-green-500">
+                        <h4 className="font-semibold text-green-700 mb-2 text-lg">No fractures detected</h4>
+                        <p className="text-slate-600">
+                          The AI classified this X-Ray structure as Normal with a confidence of{' '}
+                          <span className="font-bold">{Math.round(results.classification?.confidence || 100)}%</span>.
+                        </p>
                       </div>
                     ) : (
-                      results.detections.map((detection: any, index: number) => {
-                        const confidencePercent = Math.round(detection.confidence * 100);
-                        return (
-                          <div
-                            key={index}
-                            className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow duration-300 flex gap-4"
-                          >
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                                <Bone className="w-6 h-6 text-white" />
-                              </div>
+                      <div className="bg-white rounded-xl p-6 shadow-md hover:shadow-lg transition-shadow duration-300 flex gap-4 border-l-4 border-red-500">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-lg">
+                            <Bone className="w-6 h-6 text-white" />
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <h4 className="text-lg font-semibold text-slate-800 mb-3 capitalize">
+                            {results.classification.class.replace('_', ' ')}
+                          </h4>
+                          
+                          {/* Confidence */}
+                          <div className="mb-3">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm font-medium text-slate-600">AI Confidence:</span>
+                              <span className={`text-sm font-bold ${getConfidenceColor(Math.round(results.classification.confidence)).text}`}>
+                                {Math.round(results.classification.confidence)}%
+                              </span>
                             </div>
-                            
-                            <div className="flex-1">
-                              <h4 className="text-lg font-semibold text-slate-800 mb-3 capitalize">
-                                {detection.class.replace('_', ' ')} #{index + 1}
-                              </h4>
-                              
-                              {/* Confidence */}
-                              <div className="mb-3">
-                                <div className="flex justify-between items-center mb-2">
-                                  <span className="text-sm font-medium text-slate-600">Confidence:</span>
-                                  <span className={`text-sm font-bold ${
-                                    confidencePercent >= 80 ? 'text-green-600' :
-                                    confidencePercent >= 50 ? 'text-yellow-600' : 'text-red-600'
-                                  }`}>
-                                    {confidencePercent}%
-                                  </span>
-                                </div>
-                                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${getConfidenceClass(detection.confidence)}`}
-                                    style={{ width: `${confidencePercent}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                              
-                              {/* Location */}
-                              <div className="flex items-start gap-2 text-sm text-slate-600">
-                                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                                <span>
-                                  Location: [{Math.round(detection.box.x1)}, {Math.round(detection.box.y1)}] - [{Math.round(detection.box.x2)}, {Math.round(detection.box.y2)}]
-                                </span>
-                              </div>
+                            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${getConfidenceColor(Math.round(results.classification.confidence)).bg}`}
+                                style={{ width: `${Math.round(results.classification.confidence)}%` }}
+                              ></div>
                             </div>
                           </div>
-                        );
-                      })
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

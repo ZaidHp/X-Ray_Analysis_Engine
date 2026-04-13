@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Search, Bone, Image as ImageIcon, ClipboardList, Microscope, MapPin, Stethoscope, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Search, Bone, Image as ImageIcon, ClipboardList, Microscope, Stethoscope, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -61,11 +61,11 @@ export default function XRayDetail() {
     }
   };
 
-  const getConfidenceClass = (confidence: number) => {
-    const percent = Math.round(confidence * 100);
-    if (percent >= 80) return 'bg-green-500';
-    if (percent >= 50) return 'bg-yellow-500';
-    return 'bg-red-500';
+  // Get confidence styling classes based on percentage (0-100)
+  const getConfidenceColor = (percent: number) => {
+    if (percent >= 80) return { bg: 'bg-green-500', text: 'text-green-600' };
+    if (percent >= 50) return { bg: 'bg-yellow-500', text: 'text-yellow-600' };
+    return { bg: 'bg-red-500', text: 'text-red-600' };
   };
 
   return (
@@ -165,9 +165,9 @@ export default function XRayDetail() {
                   </div>
                   
                   <div className="bg-white rounded-xl p-4 shadow-inner flex items-center justify-center min-h-[300px]">
-                    {result.result_image_url ? (
+                    {result.explanation_image_url || result.result_image_url ? (
                       <img
-                        src={`${API_URL}${result.result_image_url}`}
+                        src={`${API_URL}${result.explanation_image_url || result.result_image_url}`}
                         alt="Detection Result"
                         className="max-h-96 max-w-full object-contain rounded-lg"
                       />
@@ -180,7 +180,7 @@ export default function XRayDetail() {
                   </div>
                 </div>
 
-                {/* Fracture Analysis */}
+                {/* Fracture Analysis (Classification Format) */}
                 <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
                   <div className="flex items-center gap-2 mb-6">
                     <ClipboardList className="w-6 h-6 text-blue-600" />
@@ -188,64 +188,47 @@ export default function XRayDetail() {
                   </div>
                   
                   <div className="space-y-4">
-                    {!result.detections || result.detections.length === 0 ? (
-                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-center">
+                    {!result.classification || result.classification.class.toLowerCase() === 'normal' ? (
+                      <div className="bg-slate-50 border border-green-200 rounded-xl p-6 text-center shadow-sm">
                         <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <AlertCircle className="w-6 h-6" />
+                          <CheckCircle2 className="w-6 h-6" />
                         </div>
-                        <h4 className="font-semibold text-slate-800 mb-1">No fractures detected</h4>
-                        <p className="text-slate-600 text-sm">The AI did not detect any structural abnormalities in this scan.</p>
+                        <h4 className="font-semibold text-green-700 mb-1">No fractures detected</h4>
+                        <p className="text-slate-600 text-sm">
+                          The AI classified this X-Ray structure as Normal with a confidence of{' '}
+                          <span className="font-bold text-green-700">{Math.round(result.classification?.confidence || 100)}%</span>.
+                        </p>
                       </div>
                     ) : (
-                      result.detections.map((detection: any, index: number) => {
-                        const confidencePercent = Math.round(detection.confidence * 100);
-                        return (
-                          <div
-                            key={index}
-                            className="bg-slate-50 border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow duration-300 flex flex-col sm:flex-row gap-5"
-                          >
-                            <div className="flex-shrink-0">
-                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
-                                <Bone className="w-6 h-6 text-white" />
-                              </div>
+                      <div className="bg-slate-50 border border-slate-200 border-l-4 border-l-red-500 rounded-xl p-6 hover:shadow-md transition-shadow duration-300 flex flex-col sm:flex-row gap-5">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center shadow-md">
+                            <Bone className="w-6 h-6 text-white" />
+                          </div>
+                        </div>
+                        
+                        <div className="flex-1">
+                          <h4 className="text-lg font-semibold text-slate-800 mb-3 capitalize flex items-center gap-2">
+                            {result.classification.class.replace('_', ' ')}
+                          </h4>
+                          
+                          {/* Confidence */}
+                          <div className="mb-3 max-w-md">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="text-sm font-medium text-slate-600">Model Confidence:</span>
+                              <span className={`text-sm font-bold ${getConfidenceColor(Math.round(result.classification.confidence)).text}`}>
+                                {Math.round(result.classification.confidence)}%
+                              </span>
                             </div>
-                            
-                            <div className="flex-1">
-                              <h4 className="text-lg font-semibold text-slate-800 mb-3 capitalize flex items-center gap-2">
-                                {detection.class.replace('_', ' ')}
-                                <span className="px-2 py-0.5 bg-slate-200 text-slate-700 text-xs rounded-full">#{index + 1}</span>
-                              </h4>
-                              
-                              {/* Confidence */}
-                              <div className="mb-3 max-w-md">
-                                <div className="flex justify-between items-center mb-2">
-                                  <span className="text-sm font-medium text-slate-600">Model Confidence:</span>
-                                  <span className={`text-sm font-bold ${
-                                    confidencePercent >= 80 ? 'text-green-600' :
-                                    confidencePercent >= 50 ? 'text-yellow-600' : 'text-red-600'
-                                  }`}>
-                                    {confidencePercent}%
-                                  </span>
-                                </div>
-                                <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${getConfidenceClass(detection.confidence)}`}
-                                    style={{ width: `${confidencePercent}%` }}
-                                  ></div>
-                                </div>
-                              </div>
-                              
-                              {/* Location */}
-                              <div className="flex items-start gap-2 text-sm text-slate-600 mt-3 pt-3 border-t border-slate-200 max-w-md">
-                                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-slate-400" />
-                                <span>
-                                  <strong className="font-medium text-slate-700">Coordinate Region:</strong> [{Math.round(detection.box.x1)}, {Math.round(detection.box.y1)}] to [{Math.round(detection.box.x2)}, {Math.round(detection.box.y2)}]
-                                </span>
-                              </div>
+                            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${getConfidenceColor(Math.round(result.classification.confidence)).bg}`}
+                                style={{ width: `${Math.round(result.classification.confidence)}%` }}
+                              ></div>
                             </div>
                           </div>
-                        );
-                      })
+                        </div>
+                      </div>
                     )}
                   </div>
                 </div>

@@ -39,45 +39,43 @@ async def detect_fracture(
     input_path = None
     
     try:
+        # 1. Save the uploaded file
         input_path = await FileHandler.save_upload(file, detection_id)
-        results, img_array = ai_service.predict(input_path)
         
-        res_path = os.path.join(settings.RESULT_DIR, f"{detection_id}_result.jpg")
-        cv2.imwrite(res_path, results[0].plot())
-        
-        boxes = []
-        detections = []
-        detected_classes = []
-        
-        for i, box in enumerate(results[0].boxes.cpu().numpy()):
-            coords = box.xyxy[0]
-            class_name = results[0].names[int(box.cls[0])]
-            confidence = float(box.conf[0])
+        # Read bytes for the DenseNet model
+        with open(input_path, "rb") as f:
+            image_bytes = f.read()
             
-            boxes.append(coords)
-            detected_classes.append(f"{class_name} ({confidence*100:.1f}% confidence)")
-            
-            detections.append({
-                "id": i,
-                "class": class_name,
-                "confidence": confidence,
-                "box": {
-                    "x1": float(coords[0]), "y1": float(coords[1]), 
-                    "x2": float(coords[2]), "y2": float(coords[3])
-                }
-            })
+        # 2. Run DenseNet-121 Classification
+        ai_result = ai_service.analyze_image(image_bytes)
         
+        if ai_result.get("status") == "error":
+            raise HTTPException(status_code=500, detail=ai_result.get("message"))
+            
+        diagnosis = ai_result["diagnosis"]
+        confidence = ai_result["confidence"]
+        
+        # We still need the image array for the Visualizer
+        img_array = cv2.imread(input_path)
+        
+        # 3. Generate Visualizations (Heatmaps/GradCAM instead of Bounding Boxes)
         expl_path = None
         gcam_path = None
-        if boxes:
-            expl_path = Visualizer.generate_explanation(img_array, boxes, detection_id)
-            gcam_path = Visualizer.generate_gradcam(img_array, boxes, detection_id)
+        
+        # We pass the diagnosis to the visualizer instead of boxes
+        if diagnosis != "Normal":
+            expl_path = Visualizer.generate_explanation(img_array, diagnosis, detection_id)
+            gcam_path = Visualizer.generate_gradcam(img_array, diagnosis, detection_id)
 
-        if not boxes:
-            findings_summary = "No abnormalities or fractures were detected by the vision model."
+        # 4. Prepare Summary for the LLM
+        if diagnosis == "Normal":
+            findings_summary = "No abnormalities or fractures were detected by the vision model. The structure appears normal."
+            db_message = "No fractures detected"
         else:
-            findings_summary = "The following potential issues were detected: " + ", ".join(detected_classes)
+            findings_summary = f"The AI model detected a {diagnosis} with a confidence of {confidence}%."
+            db_message = "Detection completed successfully"
 
+        # 5. LLM Consultation Generation
         system_prompt = """
         You are a supportive, knowledgeable AI medical assistant. 
         Your job is to take the results from a computer vision X-ray scan and provide a brief, 
@@ -101,21 +99,28 @@ async def detect_fracture(
         
         ai_consultation_text = llm_response.choices[0].message.content
             
+        # 6. Save Analysis Record to MongoDB
         analysis_record = {
             "user_id": current_user["id"],
             "detection_id": detection_id,
             "input_image_path": input_path,
-            "message": "Detection completed successfully" if boxes else "No fractures detected",
+            "message": db_message,
             "result_image_url": FileHandler.get_result_url(detection_id),
             "explanation_image_url": FileHandler.get_result_url(detection_id, "explanations") if expl_path else None,
             "gradcam_image_url": FileHandler.get_result_url(detection_id, "gradcam") if gcam_path else None,
-            "detections": detections,
+            # Replaced the 'detections' array with a single 'classification' object
+            "classification": {
+                "class": diagnosis,
+                "confidence": confidence
+            },
             "ai_consultation": ai_consultation_text,
             "created_at": datetime.now(timezone.utc)
         }
         
         insert_result = await db["xray_analyses"].insert_one(analysis_record)
         analysis_record["id"] = str(insert_result.inserted_id)
+        
+        # Clean up response payload
         analysis_record.pop("_id", None)
         analysis_record.pop("user_id", None)
         analysis_record.pop("input_image_path", None)
